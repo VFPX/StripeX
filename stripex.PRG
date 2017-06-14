@@ -11,14 +11,15 @@
 * of the many, many API calls that Stripe supports. 
 
 * With thanks to:
-*    Steve Bodnar - Who's Web API talk introduced me to Stripe
-*    Toni Feltman - Who's Restful API talk introduced me to Curl
-*    Eric Selje - Who's LibCurl with Freshbook provided good examples. 
+*    Steve Bodnar - Whose Web API talk introduced me to Stripe
+*    Toni Feltman - Whose Restful API talk introduced me to Curl
+*    Eric Selje - Whose LibCurl with Freshbook provided good examples. 
 *    Southwest Fox Conference - Where I heard all of those talks. 
+*    Rick Strahl - Whose Westwind classes replaced the no longer working Curl
 
 * Methods
-*	 AddParm: Adds a parameter to curl before making a call
-*	 AddMetaData: Adds a metadata parm to curl before making a call
+*	 AddParm: Adds a parameter before making a call
+*	 AddMetaData: Adds a metadata parm before making a call
 *    Authenticate: Just verifies that you have a good API entered & can communicate with Stripe
 *    CardCreate: Create a card for the customer
 *    CardDelete: Delete a card from the customer
@@ -59,20 +60,18 @@
 
 
 * Makes use of:
-*    cURL: http://curl.haxx.se/download.html 
-*    LibCurl for VFP: http://www.ctl32.com/libcurl.asp 
 *    Stripe API: https://stripe.com/docs/api/curl#intro 
-
+* 	 
 * Project Includes
-*    LibCurl.prg - From the LibCurl install
 *    StripX.prg - This program
 
 * Dependencies for distribution:
-*    libcurl.dll, libcurl.h, libeay32.dll, libssl32.dll, vfp2c32.fll - All from LibCurl
+*    wwUtils, wwHTTP -- all from https://store.west-wind.com/product/wwclient60
 
 
 DEFINE CLASS StripeX AS Custom
 
+cAlias = ""					&& Just holds the current alias when chaning tables
 cAPIKey = ""				&& This needs to be set by user. 
 cCurrencyISOCode = "usd"	&& Currency code, default to US $, can override
 cData = ""					&& Data returned by Stripe from the call
@@ -83,57 +82,30 @@ cURL = "https://api.stripe.com/v1/"	&& The URL to Stripe API
 
 iResult = 0			&& Supposed to return 1 on a fail, 0 on success. 
 
-oCurl = ""	&& libCurl object for making the calls. 
 oHTTP = ""
-oJSON = ""	&& Link to a json serializer
 
 ************************** 
 PROCEDURE Init()
-
-*!*		IF ATC("LIBCURL.VCX", UPPER(SET("ClassLib"))) = 0
-*!*			SET CLASSLIB TO LibCurl addi
-*!*		ENDIF
-*!*		
-*!*		this.oCurl = NEWOBJECT("libCurl")
 	
 	DO wwUtils
 	DO wwHTTP
-	DO wwJsonSerializer
 	
 	this.oHTTP = CREATEOBJECT("wwHTTP")
 	this.oHttp.cContentType = "application/x-www-form-urlencoded"
-	this.oJSON = CREATEOBJECT("wwJSONSerializer")
 	
 ENDPROC
 ************************** 
 FUNCTION Destroy()
 
-	this.oCurl = Null
+	this.oHTTP = Null
 
 ENDFUNC
 ************************** 
 FUNCTION AddParm()
-* Adds one parameter to a parameter string. Can be called multiple times then
-* to build parameter string in prepartion for calling oCurl with a bunch
-* of parameters. See Charge method for an example on this works. 
+* Adds one parameter to the call. 
 * Mostly an internal method, not something called in your program. 
 PARAMETERS tName, tValue
 
-*!*		IF !EMPTY(this.cParms)
-*!*			this.cParms = this.cParms + "&"
-*!*		ENDIF
-*!*		
-*!*		this.cParms = this.cParms + tName + "="
-*!*		
-*!*		DO case
-*!*		
-*!*			CASE VARTYPE(tValue) = "N"
-*!*				this.cParms = this.cParms + TRANSFORM(tValue)
-*!*				
-*!*			OTHERWISE	&& String
-*!*				this.cParms = this.cParms + tValue
-*!*				
-*!*		ENDCASE
 	this.oHTTP.AddPostKey(tName, tValue)
 	
 endfunc
@@ -195,41 +167,14 @@ FUNCTION CardCreate()
 
 PARAMETERS tCustomerID, tNumber, tExpire, tCVC
 
-	*this.CurlReset()
-	
-	* Pass all the parameters to Stripe
-*!*		this.AddParm("source[object]", "card")
-*!*		this.AddParm("source[exp_month]", STRTRAN(LEFT(tExpire, 2), " ", "0"))
-*!*		this.AddParm("source[exp_year]", RIGHT(tExpire, 2))
-*!*		this.AddParm("source[number]", ALLTRIM(tNumber))
-*!*		this.AddParm("source[cvc]", ALLTRIM(tCVC))
-	*this.oCurl.curlOptCopyPostfields = this.cParms
-
 	* Make the call
-	*this.CurlPerform("customers/" + tCustomerID + "/sources")
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
-
-*!*		this.AddParm("metadata[object]", "card")
-*!*		this.AddParm("metadata[exp_month]", STRTRAN(LEFT(tExpire, 2), " ", "0"))
-*!*		this.AddParm("metadata[exp_year]", RIGHT(tExpire, 2))
-*!*		this.AddParm("metadata[number]", ALLTRIM(tNumber))
-*!*		this.AddParm("metadata[cvc]", ALLTRIM(tCVC))
 
 	this.AddParm("source[object]", "card")
 	this.AddParm("source[exp_month]", STRTRAN(LEFT(tExpire, 2), " ", "0"))
 	this.AddParm("source[exp_year]", RIGHT(tExpire, 2))
 	this.AddParm("source[number]", ALLTRIM(tNumber))
 	this.AddParm("source[cvc]", ALLTRIM(tCVC))
-
-*!*		LOCAL loItem
-*!*		loItem = CREATEOBJECT("Empty")
-*!*		AddProperty(loItem, "object", "card")
-*!*		AddProperty(loItem, "exp_month", STRTRAN(LEFT(tExpire, 2), " ", "0"))
-*!*		AddProperty(loItem, "exp_year", RIGHT(tExpire, 2))
-*!*		AddProperty(loItem, "number", ALLTRIM(tNumber))
-*!*		AddProperty(loItem, "cvc", ALLTRIM(tCVC))
-*!*		lcJSON = this.oJSon.serialize(loItem)
-*!*		this.oHTTP.AddPostKey("source", lcJson)
 	
 	this.oHTTP.cHTTPVerb = "POST"	
 	this.cData = this.ohttp.httpget(this.cURL + "customers/" + tCustomerID + "/sources")
@@ -251,16 +196,8 @@ FUNCTION CardDelete()
 * Returns: T/F if the card was deleted.
 
 PARAMETERS tCustomerID, tCardID
-
-*!*		this.CurlReset()
-	
-	* Pass all the parameters to Stripe
-*	this.oCurl.curlOptCopyPostfields = ""
-*	this.ocurl.curloptcustomrequest = "DELETE"
-*	this.ocurl.curloptpost = .f.
 	
 	* Make the call
-*	this.CurlPerform("customers/" + ALLTRIM(tCustomerID) + "/sources/" + ALLTRIM(tCardID))
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.oHTTP.chttpverb = "DELETE"
 	this.cData = this.ohttp.httpget(this.cURL + "customers/" + ALLTRIM(tCustomerID) + "/sources/" + ALLTRIM(tCardID))
@@ -283,20 +220,9 @@ FUNCTION CardList()
 
 PARAMETERS tCustomerID
 
-	LOCAL lAlias
-	lAlias = ALIAS()
-	
-	*this.CurlReset()
-	
-	* Pass all the parameters to Stripe
-	*this.AddParm("object", "card")
-	*this.AddParm("customer", tCustomerID)
-	*this.AddParm("limit", "100")
-	*this.oCurl.curlOptCopyPostfields = this.cParms
+	this.cAlias = ALIAS()
 	
 	* Make the call
-	*this.oCurl.curlOptHttpGet = .t.
-	*this.CurlPerform("customers/" + tCustomerID + "/sources?object=card&limit=100")
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.cData = this.ohttp.httpget(this.cURL + "customers/" + tCustomerID + "/sources?object=card&limit=100")
 
@@ -315,9 +241,7 @@ PARAMETERS tCustomerID
 		
 		CREATE TABLE CurStripeCard Free;
 			(ID C(30))
-		IF !EMPTY(lAlias)
-			SELECT (lAlias)			
-		ENDIF
+		this.ResetAlias()
 		
 		DO WHILE .t.
 			lCount = lCount + 1		
@@ -345,12 +269,7 @@ FUNCTION CardRetrieve
 
 PARAMETERS tCustomerID, tCardID, tCursor
 
-*!*		this.CurlReset()
-*!*		this.oCurl.curlOptCopyPostfields = ""
-
 	* Make the call
-*!*		this.oCurl.curlOptHttpGet = .t.
-*!*		this.CurlPerform("customers/" + ALLTRIM(tCustomerID) + "/sources/" + ALLTRIM(tCardID))
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.cData = this.ohttp.httpget(this.cURL + "customers/" + ALLTRIM(tCustomerID) + "/sources/" + ALLTRIM(tCardID))
 
@@ -378,8 +297,6 @@ IF VARTYPE(tAmount) = "Y"	&& 1/12/16 TGL
 	tAmount = MTON(tAmount)
 ENDIF
 
-*!*		this.CurlReset()
-	
 	* Pass all the parameters to Stripe
 	this.AddParm("amount", TRANSFORM(tAmount * 100))	&& Stripe wants it in pennies
 	this.AddParm("currency", this.cCurrencyISOCode)
@@ -389,10 +306,8 @@ ENDIF
 	this.AddParm("card[cvc]", tCVC)
 	this.AddParm("description", EVL(tDesc, ""))
 	this.AddParm("statement_descriptor", EVL(tStatementDesc, ""))
-*!*		this.oCurl.curlOptCopyPostfields = this.cParms
 
-*!*		* Make the call
-*!*		this.CurlPerform("charges")
+	* Make the call
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.cData = this.ohttp.httpget(this.cURL + "charges")
 
@@ -419,8 +334,6 @@ IF VARTYPE(tAmount) = "Y"	&& 1/12/16 TGL
 	tAmount = MTON(tAmount)
 ENDIF
 
-*!*		this.CurlReset()
-	
 	* Pass all the parameters to Stripe
 	this.AddParm("customer", tCustomerID)
 	this.AddParm("source", tCardID)
@@ -428,10 +341,8 @@ ENDIF
 	this.AddParm("currency", this.cCurrencyISOCode)
 	this.AddParm("description", EVL(tDesc, ""))
 	this.AddParm("statement_descriptor", EVL(tStatementDesc, ""))
-*!*		this.oCurl.curlOptCopyPostfields = this.cParms
 
 	* Make the call
-*!*		this.CurlPerform("charges")
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.cData = this.ohttp.httpget(this.cURL + "charges")
 
@@ -457,7 +368,6 @@ IF EMPTY(tDescription)
 	tDescription = ""
 ENDIF
 
-	*this.CurlReset()
 	this.oHTTP.AddHeader("Authorization", "Bearer " + this.cAPIKey)
 	
 	IF !EMPTY(tDescription)
@@ -466,8 +376,6 @@ ENDIF
 	IF !EMPTY(tEmail)
 		this.AddParm("email", tDescription)
 	endif	
-	
-*	this.oCurl.curlOptCopyPostfields = this.cParms
 	
 	IF EMPTY(tID)
 		this.cData = this.ohttp.httpget(this.cURL + "customers")
@@ -491,8 +399,7 @@ FUNCTION CustomerList()
 * Returns: Cursor CurCustomer is a cursor of all the IDs found
 
 	* Create the CurCustomer cursor that will store the IDs
-	LOCAL lAlias
-	lAlias = ALIAS()
+	this.cAlias = ALIAS()
 	IF USED("CurCustomer")
 		SELECT CurCustomer
 		USE
@@ -500,9 +407,7 @@ FUNCTION CustomerList()
 		
 	CREATE TABLE CurCustomer Free;
 		(ID C(30))
-	IF !EMPTY(lAlias)
-		SELECT (lAlias)			
-	ENDIF
+	this.ResetAlias()	
 	
 	* Stripe only returns a limited number of customers at a time. 
 	* We have to loop through with multiple calls until there are 
@@ -521,9 +426,6 @@ FUNCTION CustomerList()
 		
 	DO WHILE lHasMore
 		* Make the call to get a page worth of customers.
-*!*			this.CurlReset()
-*!*			this.oCurl.curlOptHttpGet = .t.
-		
 		lPerform = "customers?limit=100"
 		IF !EMPTY(lStartAfter)
 			lPerform = lPerform + "&starting_after=" + ALLTRIM(lStartAfter)
@@ -576,12 +478,6 @@ FUNCTION CustomerRetrieve
 
 PARAMETERS tID, tCursor
 
-*!*		this.CurlReset()
-*!*		this.oCurl.curlOptCopyPostfields = ""
-
-*!*		* Make the call
-*!*		this.oCurl.curlOptHttpGet = .t.
-*!*		this.CurlPerform("customers/" + ALLTRIM(tID))
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.cData = this.ohttp.httpget(this.cURL + "customers/" + ALLTRIM(tID))
 
@@ -636,14 +532,9 @@ FUNCTION PlanList()
 * Returns: Count of plans found. Cursor CurStripePlan is a table
 * 			of all the IDs. 
 
-	LOCAL lAlias
-	lAlias = ALIAS()
-	
-*!*		this.CurlReset()
+	this.cAlias = ALIAS()
 	
 	* Make the call
-*!*		this.oCurl.curlOptHttpGet = .t.
-*!*		this.CurlPerform("plans?limit=100")
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.cData = this.ohttp.httpget(this.cURL + "plans?limit=100")
 
@@ -662,9 +553,7 @@ FUNCTION PlanList()
 		
 		CREATE TABLE CurStripePlan Free;
 			(ID C(30))
-		IF !EMPTY(lAlias)
-			SELECT (lAlias)			
-		ENDIF
+		this.ResetAlias()
 		
 		DO WHILE .t.
 			lCount = lCount + 1		
@@ -689,12 +578,6 @@ FUNCTION PlanRetrieve
 
 PARAMETERS tID
 
-*!*		this.CurlReset()
-*!*		this.oCurl.curlOptCopyPostfields = ""
-
-*!*		* Make the call
-*!*		this.oCurl.curlOptHttpGet = .t.
-*!*		this.CurlPerform("plans/" + ALLTRIM(tID))
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.cData = this.ohttp.httpget(this.cURL + "plans/" + ALLTRIM(tID))
 	
@@ -717,8 +600,6 @@ FUNCTION SubscriptionCreate()
 
 PARAMETERS tCustomerID, tPlanID, tTrialEnd
 
-*!*		this.CurlReset()
-	
 	* Trial End has to be Unix timestamp
 	IF EMPTY(tTrialEnd)
 		tTrialEnd = "now"	&& Special thing stripe allows. 
@@ -729,14 +610,9 @@ PARAMETERS tCustomerID, tPlanID, tTrialEnd
 	* Pass all the parameters to Stripe
 	this.AddParm("plan", ALLTRIM(tPlanID))
 	this.AddParm("customer", ALLTRIM(tCustomerID))
-*!*		this.oHTTP.AddHeader("customer", ALLTRIM(tCustomerID))
-*!*		this.oHTTP.AddHeader("plan", ALLTRIM(tPlanID))
-
 	this.AddParm("trial_end", tTrialEnd)
-*!*		this.oCurl.curlOptCopyPostfields = this.cParms
 
 	* Make the call
-*!*		this.CurlPerform("customers/" + tCustomerID + "/subscriptions")
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.oHTTP.cHTTPVerb = "POST"	
 	this.cData = this.ohttp.httpget(this.cURL + "subscriptions")
@@ -759,15 +635,7 @@ FUNCTION SubscriptionDelete()
 
 PARAMETERS tCustomerID, tID
 
-*!*		this.CurlReset()
-	
-	* Pass all the parameters to Stripe
-*!*		this.oCurl.curlOptCopyPostfields = ""
-*!*	*!*		this.ocurl.curloptcustomrequest = "DELETE"
-*!*		this.ocurl.curloptpost = .f.
-	
 	* Make the call
-*!*		this.CurlPerform("customers/" + ALLTRIM(tCustomerID) + "/subscriptions/" + ALLTRIM(tID))
 	this.oHTTP.chttpverb = "DELETE"	
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.cData = this.ohttp.httpget(this.cURL + "subscriptions/" + ALLTRIM(tID))
@@ -790,14 +658,9 @@ FUNCTION SubscriptionList()
 
 PARAMETERS tCustomerID
 
-	LOCAL lAlias
-	lAlias = ALIAS()
-	
-*!*		this.CurlReset()
+	this.cAlias = ALIAS()
 	
 	* Make the call
-*!*		this.oCurl.curlOptHttpGet = .t.
-*!*		this.CurlPerform("customers/" + tCustomerID + "/subscriptions?limit=10")
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.cData = this.ohttp.httpget(this.cURL + "subscriptions?limit=10")
 
@@ -818,9 +681,7 @@ PARAMETERS tCustomerID
 		CREATE TABLE CurStripeSubscription Free;
 			(ID C(30),;
 			 PlanID C(30))
-		IF !EMPTY(lAlias)
-			SELECT (lAlias)			
-		ENDIF
+		this.ResetAlias()		
 		
 		DO WHILE .t.
 			lCount = lCount + 1		
@@ -848,12 +709,7 @@ FUNCTION SubscriptionRetrieve
 
 PARAMETERS tCustomerID, tID
 
-*!*		this.CurlReset()
-*!*		this.oCurl.curlOptCopyPostfields = ""
-
 	* Make the call
-*!*		this.oCurl.curlOptHttpGet = .t.
-*!*		this.CurlPerform("customers/" + ALLTRIM(tCustomerID) + "/subscriptions/" + ALLTRIM(tID))
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
 	this.cData = this.ohttp.httpget(this.cURL + "subscriptions/" + ALLTRIM(tID))
 
@@ -866,36 +722,10 @@ PARAMETERS tCustomerID, tID
 
 ENDFUNC
 ************************** 
-FUNCTION CurlPerform
+FUNCTION ResetAlias
 
-PARAMETERS tFunction
-
-*!*		this.oCurl.curlOptUrl = this.cURL + tFunction
-*!*		this.iResult = this.oCurl.curlEasyPerform()
-*!*		this.cData = this.oCurl._DataBuffer
-*!*		this.cParms = ""
-
-endfunc
-************************** 
-FUNCTION CurlReset()
-* Reset curl in preperation for another call. 
-
-*!*		this.oCurl.CurlEasyReset()
-
-*!*		* Parameters we'll need
-*!*		this.oCurl.curlOptUserPwd = this.cAPIKey
-*!*		
-*!*		* EasyReset resets parameters, have to redo them. 	
-*!*		this.oCurl.curlOptPost = .T.
-*!*		this.ocurl.curloptcustomrequest = ""
-*!*		this.oCurl.curlOptPostFieldsize=-1 && Let curl figure this out
-
-*!*		this.ocurl.CurlOptSslVerifyPeer = .f.
-*!*		this.ocurl.CurlOptSSLVerifyHost = 0
-*!*		this.ocurl.curloptport = 443
-*!*		
-ENDFUNC
-************************** 
-
+	IF !EMPTY(this.cAlias) AND USED(this.cAlias)
+		SELECT (this.cAlias)
+	endif
 
 ENDDEFINE 
