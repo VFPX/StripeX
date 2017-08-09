@@ -1,11 +1,13 @@
 * Stripe: Wrapper for the Stripe.com API
 * Created 12/1/14 by Todd Landrum, todd@paladinpgm.com
-* Project hosted on VFPX: https://vfpx.codeplex.com/wikipage?title=StripeX&referringTitle=Home#
+* Project hosted on Github: https://github.com/VFPX/StripeX
 * Version 1.1 9/8/15: TGL Added functions for adding/updating customers
 * Version 1.2 10/12/15: Rick Schummer - Added currency type, cleaned up some return values. 
 * Version 1.7 12/8/15: Todd Landrum - Added Plan, Card, Subscription functions
 * Version 1.8 1/12/16: Todd Landrum - Added ChargeCard function
 * Version 1.9 1/10/17: Todd Landrum - Added CustomerList function
+* Version 2.0 8/09/17: Todd Landrum - Minor fixes. See Github.
+
 
 * This is a very basic API wrapper for working with Stripe.com. It only does a few
 * of the many, many API calls that Stripe supports. 
@@ -215,8 +217,8 @@ FUNCTION CardList()
 * 11/5/15: Get a list of all cards on the customer
 * Parameters:
 *	tCustomerID - Customer ID to create this for
-* Returns: T/F if the card was added. Cursor CurStripeCard is a table
-* of all the IDs. 
+* Returns: Number of cards found
+* CurStripeCard cursor has all of the IDs. 
 
 PARAMETERS tCustomerID
 
@@ -374,7 +376,7 @@ ENDIF
 		this.AddParm("description", tDescription)
 	ENDIF
 	IF !EMPTY(tEmail)
-		this.AddParm("email", tDescription)
+		this.AddParm("email", tEmail)
 	endif	
 	
 	IF EMPTY(tID)
@@ -662,7 +664,7 @@ PARAMETERS tCustomerID
 	
 	* Make the call
 	this.oHTTP.AddHeader("Authorization","Bearer " + this.cAPIKey)
-	this.cData = this.ohttp.httpget(this.cURL + "subscriptions?limit=10")
+	this.cData = this.ohttp.httpget(this.cURL + "subscriptions?customer=" + tcCustomerID + "&limit=10")
 
 	IF "error" $ this.cData
 		this.cErrorMessage = STREXTRACT(this.cData, ["message": "], ["])
@@ -728,4 +730,6 @@ FUNCTION ResetAlias
 		SELECT (this.cAlias)
 	endif
 
+ENDFUNC 
+************************* 
 ENDDEFINE 
