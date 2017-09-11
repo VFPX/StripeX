@@ -7,7 +7,7 @@
 * Version 1.8 1/12/16: Todd Landrum - Added ChargeCard function
 * Version 1.9 1/10/17: Todd Landrum - Added CustomerList function
 * Version 2.0 8/09/17: Todd Landrum - Minor fixes. See Github.
-
+* Version 2.1 9/11/17: Todd Landrum - Minor fixes. See Github.
 
 * This is a very basic API wrapper for working with Stripe.com. It only does a few
 * of the many, many API calls that Stripe supports. 
@@ -236,10 +236,7 @@ PARAMETERS tCustomerID
 		lCardID = 0
 		lCount = 0
 		
-		IF USED("CurStripeCard")
-			SELECT CurStripeCard
-			USE
-		ENDIF
+		this.CloseCursor("CurStripeCard")
 		
 		CREATE TABLE CurStripeCard Free;
 			(ID C(30))
@@ -402,10 +399,7 @@ FUNCTION CustomerList()
 
 	* Create the CurCustomer cursor that will store the IDs
 	this.cAlias = ALIAS()
-	IF USED("CurCustomer")
-		SELECT CurCustomer
-		USE
-	ENDIF
+	this.CloseCursor("CurCustomer")
 		
 	CREATE TABLE CurCustomer Free;
 		(ID C(30))
@@ -548,10 +542,7 @@ FUNCTION PlanList()
 		lID = 0
 		lCount = 0
 		
-		IF USED("CurStripePlan")
-			SELECT CurStripePlan
-			USE
-		ENDIF
+		this.CloseCursor("CurStripePlan")
 		
 		CREATE TABLE CurStripePlan Free;
 			(ID C(30))
@@ -631,11 +622,10 @@ ENDFUNC
 FUNCTION SubscriptionDelete()
 * 11/17/15: Delete a subscription from a customer
 * Parameters:
-*	tCustomerID - Customer ID to create this to
 *	tID - Subscription ID
 * Returns: T/F if the subscription was deleted.
 
-PARAMETERS tCustomerID, tID
+PARAMETERS tID
 
 	* Make the call
 	this.oHTTP.chttpverb = "DELETE"	
@@ -644,9 +634,9 @@ PARAMETERS tCustomerID, tID
 
 	IF "error" $ this.cData
 		this.cErrorMessage = STREXTRACT(this.cData, ["message": "], ["])
-		RETURN .f.
+		RETURN "0"
 	ELSE
-		RETURN .t.
+		RETURN this.cData 
 	endif
 
 ENDFUNC 
@@ -675,10 +665,7 @@ PARAMETERS tCustomerID
 		lCount = 0
 		lPlanID = 0
 		
-		IF USED("CurStripeSubscription")
-			SELECT CurStripeSubscription
-			USE
-		ENDIF
+		this.CloseCursor("CurStripeSubscription")
 		
 		CREATE TABLE CurStripeSubscription Free;
 			(ID C(30),;
@@ -732,4 +719,18 @@ FUNCTION ResetAlias
 
 ENDFUNC 
 ************************* 
+PROCEDURE CloseCursor
+LPARAMETERS tcCursor
+LOCAL loError
+
+   TRY 
+      IF USED(tcCursor)
+         USE IN (tcCursor)
+      ENDIF 
+   CATCH TO loerror 
+   ENDTRY 
+   
+ENDPROC
+************************* 
+   
 ENDDEFINE 
